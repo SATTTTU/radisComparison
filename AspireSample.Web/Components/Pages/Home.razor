@@ -1,0 +1,84 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager Nav
+@inject HubConnection hub
+@* 👇 THIS IS THE MISSING LINE 👇 *@
+@rendermode InteractiveServer
+
+<PageTitle>Home</PageTitle>
+
+<h3>SignalR Demo</h3>
+
+@* 👇 Add a Status indicator to debug connection issues *@
+<div>
+    Status: <strong style="color: @(IsConnected ? "green" : "red")">@hub.State</strong>
+</div>
+<br />
+
+<div>
+    <input @bind="User" placeholder="Your name" />
+    <input @bind="Message" placeholder="Message" />
+    <!-- Disable button if not connected -->
+    <button @onclick="Send" disabled="@(!IsConnected)">Send</button>
+</div>
+
+<ul>
+    @foreach (var msg in Messages)
+    {
+        <li>@msg</li>
+    }
+</ul>
+
+@code {
+    private string User { get; set; } = string.Empty;
+    private string Message { get; set; } = string.Empty;
+    private List<string> Messages = new();
+
+    // Helper to check connection state
+    private bool IsConnected => hub.State == HubConnectionState.Connected;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Setup the listener
+        hub.On<string, string>("ReceiveMessage", (user, message) =>
+        {
+            Messages.Add($"{user}: {message}");
+            InvokeAsync(StateHasChanged);
+        });
+
+        // 2. Start the connection if it's down
+        if (hub.State == HubConnectionState.Disconnected)
+        {
+            try
+            {
+                await hub.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                // This will print to your Browser Console (F12)
+                Console.WriteLine($"Error starting SignalR: {ex.Message}");
+                Messages.Add($"System: Could not connect to server. {ex.Message}");
+            }
+        }
+    }
+
+    private async Task Send()
+    {
+        if (hub.State == HubConnectionState.Connected)
+        {
+            try
+            {
+                await hub.InvokeAsync("SendMessage", User, Message);
+                Message = "";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error sending: {ex.Message}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Cannot send: Hub is not connected.");
+        }
+    }
+}
