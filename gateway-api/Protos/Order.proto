@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option csharp_namespace = "order_service.Protos";
+
+package order;
+
+service OrderGrpc {
+  rpc CreateOrder (CreateOrderRequest) returns (OrderResponse);
+  rpc GetOrder (GetOrderRequest) returns (OrderResponse);
+  rpc UpdateOrderStatus (UpdateOrderStatusRequest) returns (OrderResponse);
+}
+
+message CreateOrderRequest {
+  double amount = 1;
+}
+
+message GetOrderRequest {
+  int32 id = 1;
+}
+
+message UpdateOrderStatusRequest {
+  int32 id = 1;
+  string status = 2;
+}
+
+message OrderResponse {
+  int32 id = 1;
+  double amount = 2;
+  string status = 3;
+}
