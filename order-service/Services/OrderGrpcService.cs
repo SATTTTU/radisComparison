@@ -1,70 +1,62 @@
 using Grpc.Core;
-using order_service.Protos;
-using order_service.Repositories;
-using order_service.Domain;
-
-namespace order_service.Services;
-
-public class OrderGrpcService : OrderGrpc.OrderGrpcBase
+using OrderProto;
+using OrderServiceApp.Domain;
+using OrderServiceApp.Repositories;
+using System.Threading.Tasks;
+namespace OrderServiceApp.Services
 {
-    private readonly IOrderRepository _repository;
-    private readonly ILogger<OrderGrpcService> _logger;
-
-    public OrderGrpcService(IOrderRepository repository, ILogger<OrderGrpcService> logger)
+    public class OrderGrpcService : OrderService.OrderServiceBase
     {
-        _repository = repository;
-        _logger = logger;
-    }
+        private readonly IOrderRepository _repo;
+        public OrderGrpcService(IOrderRepository repo) => _repo = repo;
 
-    public override async Task<OrderResponse> CreateOrder(CreateOrderRequest request, ServerCallContext context)
-    {
-        var order = new Order
+        public override async Task<CreateOrderResponse> CreateOrder(CreateOrderRequest request, ServerCallContext context)
         {
-            Amount = (decimal)request.Amount,
-            Status = "Created"
-        };
+            var order = new Order
+            {
+                UserId = request.UserId,
+                Amount = request.Amount,
+                Currency = request.Currency,
+                Status = OrderStatus.Pending
+            };
 
-        var createdOrder = await _repository.CreateOrderAsync(order);
+            var created = await _repo.CreateAsync(order);
 
-        return new OrderResponse
-        {
-            Id = createdOrder.Id,
-            Amount = (double)createdOrder.Amount,
-            Status = createdOrder.Status
-        };
-    }
-
-    public override async Task<OrderResponse> GetOrder(GetOrderRequest request, ServerCallContext context)
-    {
-        var order = await _repository.GetOrderAsync(request.Id);
-
-        if (order == null)
-        {
-            throw new RpcException(new Status(StatusCode.NotFound, $"Order with ID {request.Id} not found"));
+            return new CreateOrderResponse
+            {
+                OrderId = created.Id,
+                Amount = created.Amount,
+                Currency = created.Currency,
+                Status = created.Status.ToString()
+            };
         }
 
-        return new OrderResponse
+        public override async Task<GetOrderResponse> GetOrder(GetOrderRequest request, ServerCallContext context)
         {
-            Id = order.Id,
-            Amount = (double)order.Amount,
-            Status = order.Status
-        };
-    }
+            var order = await _repo.GetByIdAsync(request.OrderId);
+            if (order == null) throw new RpcException(new Status(StatusCode.NotFound, "Order not found"));
 
-    public override async Task<OrderResponse> UpdateOrderStatus(UpdateOrderStatusRequest request, ServerCallContext context)
-    {
-        var updatedOrder = await _repository.UpdateOrderStatusAsync(request.Id, request.Status);
-
-        if (updatedOrder == null)
-        {
-            throw new RpcException(new Status(StatusCode.NotFound, $"Order with ID {request.Id} not found"));
+            return new GetOrderResponse
+            {
+                OrderId = order.Id,
+                UserId = order.UserId,
+                Amount = order.Amount,
+                Currency = order.Currency,
+                Status = order.Status.ToString()
+            };
         }
 
-        return new OrderResponse
+        public override async Task<UpdateOrderStatusResponse> UpdateOrderStatus(UpdateOrderStatusRequest request, ServerCallContext context)
         {
-            Id = updatedOrder.Id,
-            Amount = (double)updatedOrder.Amount,
-            Status = updatedOrder.Status
-        };
+            var order = await _repo.GetByIdAsync(request.OrderId);
+            if (order == null) return new UpdateOrderStatusResponse { Ok = false };
+
+            if (System.Enum.TryParse<OrderStatus>(request.Status, out var s))
+                order.Status = s;
+
+            await _repo.UpdateAsync(order);
+
+            return new UpdateOrderStatusResponse { Ok = true };
+        }
     }
 }

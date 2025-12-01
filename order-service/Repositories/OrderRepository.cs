@@ -1,44 +1,32 @@
 using Microsoft.EntityFrameworkCore;
-using order_service.Data;
-using order_service.Domain;
+using OrderServiceApp.Data;
+using OrderServiceApp.Domain;
+using System.Threading.Tasks;
+using OrderServiceApp.Repositories;
 
-namespace order_service.Repositories;
-
-public interface IOrderRepository
+namespace OrderServiceApp.Repositories
 {
-    Task<Order> CreateOrderAsync(Order order);
-    Task<Order?> GetOrderAsync(int id);
-    Task<Order?> UpdateOrderStatusAsync(int id, string status);
-}
-
-public class OrderRepository : IOrderRepository
-{
-    private readonly OrderDbContext _context;
-
-    public OrderRepository(OrderDbContext context)
+    public class OrderRepository : IOrderRepository
     {
-        _context = context;
-    }
+        private readonly OrderDbContext _db;
+        public OrderRepository(OrderDbContext db) => _db = db;
 
-    public async Task<Order> CreateOrderAsync(Order order)
-    {
-        _context.Orders.Add(order);
-        await _context.SaveChangesAsync();
-        return order;
-    }
+        public async Task<Order> CreateAsync(Order order)
+        {
+            var ent = (await _db.Orders.AddAsync(order)).Entity;
+            await _db.SaveChangesAsync();
+            return ent;
+        }
 
-    public async Task<Order?> GetOrderAsync(int id)
-    {
-        return await _context.Orders.FindAsync(id);
-    }
+        public async Task<Order?> GetByIdAsync(int id)
+        {
+            return await _db.Orders.FirstOrDefaultAsync(o => o.Id == id);
+        }
 
-    public async Task<Order?> UpdateOrderStatusAsync(int id, string status)
-    {
-        var order = await _context.Orders.FindAsync(id);
-        if (order == null) return null;
-
-        order.Status = status;
-        await _context.SaveChangesAsync();
-        return order;
+        public async Task UpdateAsync(Order order)
+        {
+            _db.Orders.Update(order);
+            await _db.SaveChangesAsync();
+        }
     }
 }

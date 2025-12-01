@@ -1,16 +1,22 @@
-namespace order_service.Domain;
+using System;
 
-public class Order
+namespace OrderServiceApp.Domain
 {
-    public int Id { get; set; }
-    public decimal Amount { get; set; }
-    public OrderStatus Status { get; set; } = OrderStatus.Pending;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-}
+    public enum OrderStatus
+    {
+        Pending,
+        Paid,
+        Failed,
+        Cancelled
+    }
 
-pubic enum OrderStatus
-{
-    Pending,
-    Completed,
-    Cancelled
+    public class Order
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public long Amount { get; set; } // cents
+        public string Currency { get; set; } = "USD";
+        public OrderStatus Status { get; set; } = OrderStatus.Pending;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
 }

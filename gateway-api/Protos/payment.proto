@@ -1,16 +1,15 @@
 syntax = "proto3";
-
-option csharp_namespace = "payment_service.Protos";
+option csharp_namespace = "PaymentProto";
 
 package payment;
 
-service PaymentGrpc {
+service PaymentService {
   rpc CreatePayment (CreatePaymentRequest) returns (CreatePaymentResponse);
   rpc CapturePayment (CapturePaymentRequest) returns (CapturePaymentResponse);
 }
 
 message CreatePaymentRequest {
-  double amount = 1;
+  int64 amount = 1;
   string returnUrl = 2;
   string cancelUrl = 3;
 }

@@ -1,28 +1,36 @@
 using Microsoft.EntityFrameworkCore;
-using order_service.Data;
-using order_service.Repositories;
-using order_service.Services;
+using OrderServiceApp.Data;
+using OrderServiceApp.Repositories;
+using OrderServiceApp.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddGrpc();
-builder.Services.AddDbContext<OrderDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Add DB -- use connection string from appsettings or environment
+var connection = builder.Configuration.GetConnectionString("OrderDatabase")
+    ?? builder.Configuration["ORDER_DB_CONNECTION"]
+    ?? "Host=localhost;Port=5432;Username=postgres;Password=admin;Database=myname";
+
+
+builder.Services.AddDbContext<OrderDbContext>(opts => opts.UseNpgsql(connection));
 
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+builder.Services.AddGrpc();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 app.MapGrpcService<OrderGrpcService>();
-app.MapGet("/", () => "Communication with gRPC endpoints must be made through a gRPC client. To learn how to create a client, visit: https://go.microsoft.com/fwlink/?linkid=2086909");
-
-// Apply migrations automatically
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<OrderDbContext>();
-    dbContext.Database.EnsureCreated();
-}
+app.MapGet("/", () => "Order service running");
+app.UseCors("AllowFrontend");
 
 app.Run();

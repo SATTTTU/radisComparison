@@ -1,19 +1,11 @@
 using Microsoft.EntityFrameworkCore;
-using order_service.Domain;
+using OrderServiceApp.Domain;
 
-namespace order_service.Data;
-
-public class OrderDbContext : DbContext
+namespace OrderServiceApp.Data
 {
-    public OrderDbContext(DbContextOptions<OrderDbContext> options) : base(options)
+    public class OrderDbContext : DbContext
     {
-    }
-
-    public DbSet<Order> Orders { get; set; }
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        modelBuilder.Entity<Order>().HasKey(o => o.Id);
-        modelBuilder.Entity<Order>().Property(o => o.Amount).HasColumnType("decimal(18,2)");
+        public OrderDbContext(DbContextOptions<OrderDbContext> opts) : base(opts) { }
+        public DbSet<Order> Orders { get; set; } = null!;
     }
 }

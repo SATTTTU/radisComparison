@@ -1,9 +1,9 @@
 using Grpc.Core;
-using payment_service.Protos;
+using PaymentProto;
 
 namespace payment_service.Services;
 
-public class PaymentGrpcService : PaymentGrpc.PaymentGrpcBase
+public class PaymentGrpcService : PaymentService.PaymentServiceBase
 {
     private readonly IPayPalService _payPalService;
     private readonly ILogger<PaymentGrpcService> _logger;
@@ -18,7 +18,8 @@ public class PaymentGrpcService : PaymentGrpc.PaymentGrpcBase
     {
         try
         {
-            var (orderId, approvalUrl) = await _payPalService.CreateOrderAsync(request.Amount, request.ReturnUrl, request.CancelUrl);
+            var (orderId, approvalUrl) =
+                await _payPalService.CreateOrderAsync(request.Amount, request.ReturnUrl, request.CancelUrl);
 
             return new CreatePaymentResponse
             {

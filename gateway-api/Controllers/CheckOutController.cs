@@ -1,70 +1,78 @@
 using Microsoft.AspNetCore.Mvc;
-using order_service.Protos;
-using payment_service.Protos;
-using shared.Models;
+using OrderProto;   // Defined in order.proto
+using PaymentProto; // Defined in payment.proto
 
-namespace gateway_api.Controllers;
+namespace GatewayApi.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 public class CheckoutController : ControllerBase
 {
-    private readonly OrderGrpc.OrderGrpcClient _orderClient;
-    private readonly PaymentGrpc.PaymentGrpcClient _paymentClient;
+    // FIX 1: The type is ServiceName + "Client"
+    // It is NOT "OrderGrpcClient"
+    private readonly OrderService.OrderServiceClient _orderClient;
+    private readonly PaymentService.PaymentServiceClient _paymentClient;
 
-    public CheckoutController(OrderGrpc.OrderGrpcClient orderClient, PaymentGrpc.PaymentGrpcClient paymentClient)
+    public CheckoutController(
+        // FIX 2: Update Constructor Injection types
+        OrderService.OrderServiceClient orderClient,
+        PaymentService.PaymentServiceClient paymentClient)
     {
         _orderClient = orderClient;
         _paymentClient = paymentClient;
     }
 
     [HttpPost("create-order")]
-    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
+    public async Task<IActionResult> CreateOrder([FromBody] CreateOrderDto request)
     {
-        // 1. Create Order in Order Service
-        var orderResponse = await _orderClient.CreateOrderAsync(new order_service.Protos.CreateOrderRequest
+        // 1. Order Service gRPC Call
+        var orderResponse = await _orderClient.CreateOrderAsync(new CreateOrderRequest
         {
-            Amount = request.Amount
+            UserId = request.UserId,
+            Amount = request.Amount,
+            Currency = request.Currency
         });
 
-        // 2. Create Payment in Payment Service (PayPal)
-        var paymentResponse = await _paymentClient.CreatePaymentAsync(new payment_service.Protos.CreatePaymentRequest
+        // 2. Payment Service gRPC Call
+        var paymentResponse = await _paymentClient.CreatePaymentAsync(new CreatePaymentRequest
         {
             Amount = request.Amount,
-            ReturnUrl = "http://localhost:3000/checkout/success", // Example URL
+            // FIX 3: REMOVE 'Currency'. Your payment.proto 'CreatePaymentRequest' 
+            // does not have a Currency field, only amount, returnUrl, and cancelUrl.
+            // Currency = request.Currency, 
+
+            ReturnUrl = "http://localhost:3000/checkout/success",
             CancelUrl = "http://localhost:3000/checkout/cancel"
         });
 
         return Ok(new
         {
-            OrderId = orderResponse.Id,
+            OrderId = orderResponse.OrderId,
             PaymentId = paymentResponse.PaymentId,
             ApprovalUrl = paymentResponse.ApprovalUrl
         });
     }
 
     [HttpPost("capture-payment")]
-    public async Task<IActionResult> CapturePayment([FromBody] CapturePaymentRequest request)
+    public async Task<IActionResult> CapturePayment([FromBody] CapturePaymentDto request)
     {
-        var response = await _paymentClient.CapturePaymentAsync(new payment_service.Protos.CapturePaymentRequest
+        var response = await _paymentClient.CapturePaymentAsync(new CapturePaymentRequest
         {
             PaymentId = request.PaymentId
         });
 
-        return Ok(new
-        {
-            PaymentId = response.PaymentId,
-            Status = response.Status
-        });
+        return Ok(response);
     }
 }
 
-public class CreateOrderRequest
+public class CreateOrderDto
 {
-    public double Amount { get; set; }
+    public int UserId { get; set; }
+    public long Amount { get; set; }
+    public string Currency { get; set; } = "USD";
 }
 
-public class CapturePaymentRequest
+public class CapturePaymentDto
 {
     public string PaymentId { get; set; } = string.Empty;
 }
