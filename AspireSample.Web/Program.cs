@@ -1,45 +1,69 @@
 using AspireSample.Web;
+using System.Net;
 using AspireSample.Web.Components;
 using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.AspNetCore.Components;
-
-
+using Microsoft.AspNetCore.Components.Authorization;
+using AspireSample.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Aspire service discovery
-builder.AddServiceDefaults();
-
-// Blazor services
+// ----------------------------
+// Register Blazor + core services
+// ----------------------------
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddOutputCache();
 
-// HttpClient using Aspire discovery
-builder.Services.AddHttpClient<WeatherApiClient>(client =>
+// ----------------------------
+// HTTP clients using Aspire service discovery
+// ----------------------------
+builder.Services.AddHttpClient<AuthService>((sp, client) =>
 {
-    client.BaseAddress = new("https+http://apiservice");
-});
-
-// SignalR HubConnection using Aspire discovery
-// SignalR HubConnection
-builder.Services.AddSingleton<HubConnection>(sp =>
-{
-    // In Aspire, service URLs are injected into Configuration
-    // Format: "services:{serviceName}:{endpointName}:0"
     var config = sp.GetRequiredService<IConfiguration>();
 
-    // Attempt to get the URL. If it's null, fallback to a hardcoded string or throw error.
-    var apiUrl = config[$"services:apiservice:http:0"]
-                 ?? config[$"services:apiservice:https:0"]
-                 ?? throw new InvalidOperationException("Could not resolve endpoint for 'apiservice'");
+    var apiUrl =
+        config["services:apiservice:https:0"] ??
+        config["services:apiservice:http:0"] ??
+        throw new InvalidOperationException("ApiService endpoint not found");
 
-    return new HubConnectionBuilder()
-        .WithUrl($"{apiUrl}/chathub") // Note: Ensure slash handling is correct
-        .WithAutomaticReconnect()
-        .Build();
+    client.BaseAddress = new Uri(apiUrl);
 });
+
+
+
+// ----------------------------
+// Authentication / Authorization
+// ----------------------------
+builder.Services.AddAuthentication("Cookies")
+    .AddCookie("Cookies", options =>
+    {
+        options.LoginPath = "/login";
+    });
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
+
+// ----------------------------
+// Application state singletons
+// ----------------------------
+builder.Services.AddScoped<ChatState>();
+
+// ----------------------------
+// SignalR Hub connection via Aspire discovery
+// ----------------------------
+
+
+// ----------------------------
+// Add Aspire defaults (LAST)
+// ----------------------------
+builder.AddServiceDefaults();
+
 var app = builder.Build();
 
+// ----------------------------
+// HTTP pipeline
+// ----------------------------
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -47,11 +71,21 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseAntiforgery();
 app.UseOutputCache();
 
+// Blazor UI endpoints
 app.MapStaticAssets();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+
+// Aspire health endpoints
 app.MapDefaultEndpoints();
 
 app.Run();

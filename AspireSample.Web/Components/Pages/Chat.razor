@@ -1,0 +1,74 @@
+﻿@page "/chat"
+@using Microsoft.AspNetCore.Authorization
+@using AspireSample.Web.Services
+@using Microsoft.AspNetCore.SignalR.Client
+@inject ChatState ChatState
+@inject NavigationManager Navigation
+@attribute [Authorize]
+@implements IDisposable
+
+<PageTitle>Chat</PageTitle>
+
+<h1>Chat</h1>
+
+@if (!ChatState.IsConnected)
+{
+    <div class="alert alert-warning">Connecting to chat...</div>
+}
+else
+{
+    <div class="chat-container">
+        <ul id="messagesList" class="list-group mb-3" style="max-height: 300px; overflow-y: auto;">
+            @foreach (var message in messages)
+            {
+                <li class="list-group-item">@message</li>
+            }
+        </ul>
+
+        <div class="input-group">
+            <input @bind="messageInput" class="form-control" placeholder="Type a message..."
+                   @onkeyup="@(e => e.Key == "Enter" ? Send() : Task.CompletedTask)" />
+            <button @onclick="Send" class="btn btn-primary">Send</button>
+        </div>
+    </div>
+}
+
+@code {
+    private string? messageInput;
+    private List<string> messages = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        ChatState.OnChange += StateHasChanged;
+
+        if (ChatState.HubConnection is null)
+            await ChatState.ConnectAsync();
+
+        if (ChatState.HubConnection is not null)
+        {
+            ChatState.HubConnection.On<string, string>("ReceiveMessage", (user, message) =>
+            {
+                messages.Add($"{user}: {message}");
+                InvokeAsync(StateHasChanged);
+            });
+
+            await ChatState.HubConnection.InvokeAsync("JoinRoom", "general", ChatState.Username);
+        }
+
+    }
+
+    private async Task Send()
+    {
+        if (ChatState.HubConnection != null && !string.IsNullOrWhiteSpace(messageInput))
+        {
+            await ChatState.HubConnection.SendAsync("SendMessage", messageInput);
+
+            messageInput = string.Empty;
+        }
+    }
+
+    public void Dispose()
+    {
+        ChatState.OnChange -= StateHasChanged;
+    }
+}

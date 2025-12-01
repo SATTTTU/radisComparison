@@ -1,0 +1,65 @@
+@page "/login"
+@rendermode InteractiveServer
+
+@using AspireSample.Web.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+@inject ChatState _chatState
+
+
+<h3>Login</h3>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="alert alert-danger">@ErrorMessage</div>
+}
+
+<div class="card">
+    <div class="card-body">
+        <div class="mb-3">
+            <label>Username</label>
+            <input @bind="Username" class="form-control" />
+        </div>
+
+        <div class="mb-3">
+            <label>Password</label>
+            <input @bind="Password" type="password" class="form-control" />
+        </div>
+
+        <button @onclick="HandleLogin" class="btn btn-primary">Login</button>
+        <button @onclick="Test" class="btn btn-warning">Test</button>
+
+        <a href="/register" class="btn btn-link">Register</a>
+    </div>
+</div>
+
+@code {
+    private string Username = "";
+    private string Password = "";
+    private string ErrorMessage = "";
+
+    private async Task HandleLogin()
+    {
+        var success = await AuthService.LoginAsync(Username, Password);
+
+        Console.WriteLine("Login result = " + success);
+
+        if (success)
+        {
+            await _chatState.ConnectAsync();
+
+            Navigation.NavigateTo("/chat");
+        }
+        else
+        {
+            ErrorMessage = "Invalid username or password";
+        }
+    }
+
+
+    private async Task Test()
+    {
+        var ok = await AuthService.TestAuthAsync();
+        Console.WriteLine("TEST BUTTON RESULT = " + ok);
+    }
+}
