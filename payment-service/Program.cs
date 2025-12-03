@@ -7,6 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddGrpc();
 builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection("PayPal"));
 builder.Services.AddSingleton<IPayPalService, PayPalService>();
+builder.Services.AddSingleton<shared.Messaging.RabbitMqPublisher>();
+builder.Services.AddHostedService<OrderCreatedConsumer>();
 
 
 

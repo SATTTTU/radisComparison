@@ -7,7 +7,8 @@ namespace OrderServiceApp.Domain
         Pending,
         Paid,
         Failed,
-        Cancelled
+        Cancelled,
+        Completed
     }
 
     public class Order

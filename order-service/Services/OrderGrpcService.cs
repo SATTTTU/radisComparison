@@ -8,10 +8,20 @@ namespace OrderServiceApp.Services
     public class OrderGrpcService : OrderService.OrderServiceBase
     {
         private readonly IOrderRepository _repo;
-        public OrderGrpcService(IOrderRepository repo) => _repo = repo;
+        private readonly shared.Messaging.RabbitMqPublisher _publisher;
+        private readonly ILogger<OrderGrpcService> _logger;
+
+        public OrderGrpcService(IOrderRepository repo, shared.Messaging.RabbitMqPublisher publisher, ILogger<OrderGrpcService> logger)
+        {
+            _repo = repo;
+            _publisher = publisher;
+            _logger = logger;
+        }
 
         public override async Task<CreateOrderResponse> CreateOrder(CreateOrderRequest request, ServerCallContext context)
         {
+            _logger.LogInformation("Creating Order for User {UserId} with Amount {Amount}", request.UserId, request.Amount);
+
             var order = new Order
             {
                 UserId = request.UserId,
@@ -21,6 +31,17 @@ namespace OrderServiceApp.Services
             };
 
             var created = await _repo.CreateAsync(order);
+            _logger.LogInformation("Order Created: {OrderId}", created.Id);
+
+            // Publish OrderCreatedEvent
+            var orderEvent = new shared.Events.OrderCreatedEvent
+            {
+                OrderId = created.Id,
+                Amount = created.Amount
+            };
+
+            _logger.LogInformation("Publishing OrderCreatedEvent for Order {OrderId}", created.Id);
+            await _publisher.PublishAsync("order_exchange", "order.created", orderEvent);
 
             return new CreateOrderResponse
             {

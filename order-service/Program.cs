@@ -14,6 +14,8 @@ var connection = builder.Configuration.GetConnectionString("OrderDatabase")
 builder.Services.AddDbContext<OrderDbContext>(opts => opts.UseNpgsql(connection));
 
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
+builder.Services.AddScoped<shared.Messaging.RabbitMqPublisher>();
+builder.Services.AddHostedService<PaymentCompletedConsumer>();
 // Add CORS
 builder.Services.AddCors(options =>
 {
