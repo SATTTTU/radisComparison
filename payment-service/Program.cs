@@ -8,6 +8,8 @@ builder.Services.AddGrpc();
 builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection("PayPal"));
 builder.Services.AddSingleton<IPayPalService, PayPalService>();
 
+
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

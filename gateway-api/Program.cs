@@ -23,13 +23,14 @@ builder.Services.AddCors(options =>
 // GRPC Clients
 builder.Services.AddGrpcClient<OrderService.OrderServiceClient>(o =>
 {
-    o.Address = new Uri("http://localhost:5001");
+    o.Address = new Uri("http://localhost:5236");
 });
 
 builder.Services.AddGrpcClient<PaymentService.PaymentServiceClient>(o =>
 {
-    o.Address = new Uri("http://localhost:5002");
+    o.Address = new Uri("http://localhost:5116");
 });
+
 
 var app = builder.Build();
 
