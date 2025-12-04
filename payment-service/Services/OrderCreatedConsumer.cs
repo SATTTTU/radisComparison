@@ -6,6 +6,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using shared.Events;
 using shared.Messaging;
+using AutoMapper;
 
 namespace payment_service.Services;
 
@@ -14,14 +15,16 @@ public class OrderCreatedConsumer : BackgroundService
     private readonly IConfiguration _configuration;
     private readonly RabbitMqPublisher _publisher;
     private readonly ILogger<OrderCreatedConsumer> _logger;
+    private readonly IMapper _mapper;
     private IConnection _connection;
     private IChannel _channel;
 
-    public OrderCreatedConsumer(IConfiguration configuration, RabbitMqPublisher publisher, ILogger<OrderCreatedConsumer> logger)
+    public OrderCreatedConsumer(IConfiguration configuration, RabbitMqPublisher publisher, ILogger<OrderCreatedConsumer> logger, IMapper mapper)
     {
         _configuration = configuration;
         _publisher = publisher;
         _logger = logger;
+        _mapper = mapper;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -56,11 +59,7 @@ public class OrderCreatedConsumer : BackgroundService
                 await Task.Delay(1000); // Simulate work
 
                 // Publish PaymentCompletedEvent
-                var paymentEvent = new PaymentCompletedEvent
-                {
-                    OrderId = orderEvent.OrderId,
-                    Status = "Success"
-                };
+                var paymentEvent = _mapper.Map<PaymentCompletedEvent>(orderEvent);
 
                 _logger.LogInformation("Payment processed. Publishing PaymentCompletedEvent for Order {OrderId}", orderEvent.OrderId);
                 await _publisher.PublishAsync("payment_exchange", "payment.completed", paymentEvent);

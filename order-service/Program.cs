@@ -16,6 +16,7 @@ builder.Services.AddDbContext<OrderDbContext>(opts => opts.UseNpgsql(connection)
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<shared.Messaging.RabbitMqPublisher>();
 builder.Services.AddHostedService<PaymentCompletedConsumer>();
+builder.Services.AddAutoMapper(typeof(Program));
 
 // Add Redis
 var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";

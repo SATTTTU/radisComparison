@@ -9,6 +9,7 @@ builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection("PayP
 builder.Services.AddSingleton<IPayPalService, PayPalService>();
 builder.Services.AddSingleton<shared.Messaging.RabbitMqPublisher>();
 builder.Services.AddHostedService<OrderCreatedConsumer>();
+builder.Services.AddAutoMapper(typeof(Program));
 
 
 

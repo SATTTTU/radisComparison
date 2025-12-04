@@ -5,6 +5,7 @@ using OrderServiceApp.Repositories;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Distributed;
 using Newtonsoft.Json;
+using AutoMapper;
 namespace OrderServiceApp.Services
 {
     public class OrderGrpcService : OrderService.OrderServiceBase
@@ -13,13 +14,15 @@ namespace OrderServiceApp.Services
         private readonly shared.Messaging.RabbitMqPublisher _publisher;
         private readonly ILogger<OrderGrpcService> _logger;
         private readonly IDistributedCache _cache;
+        private readonly IMapper _mapper;
 
-        public OrderGrpcService(IOrderRepository repo, shared.Messaging.RabbitMqPublisher publisher, ILogger<OrderGrpcService> logger, IDistributedCache cache)
+        public OrderGrpcService(IOrderRepository repo, shared.Messaging.RabbitMqPublisher publisher, ILogger<OrderGrpcService> logger, IDistributedCache cache, IMapper mapper)
         {
             _repo = repo;
             _publisher = publisher;
             _logger = logger;
             _cache = cache;
+            _mapper = mapper;
         }
 
         public override async Task<CreateOrderResponse> CreateOrder(CreateOrderRequest request, ServerCallContext context)
@@ -41,34 +44,18 @@ namespace OrderServiceApp.Services
 
             _logger.LogInformation("Creating Order for User {UserId} with Amount {Amount}", request.UserId, request.Amount);
 
-            var order = new Order
-            {
-                UserId = request.UserId,
-                Amount = request.Amount,
-                Currency = request.Currency,
-                Status = OrderStatus.Pending
-            };
+            var order = _mapper.Map<Order>(request);
 
             var created = await _repo.CreateAsync(order);
             _logger.LogInformation("Order Created: {OrderId}", created.Id);
 
             // Publish OrderCreatedEvent
-            var orderEvent = new shared.Events.OrderCreatedEvent
-            {
-                OrderId = created.Id,
-                Amount = created.Amount
-            };
+            var orderEvent = _mapper.Map<shared.Events.OrderCreatedEvent>(created);
 
             _logger.LogInformation("Publishing OrderCreatedEvent for Order {OrderId}", created.Id);
             await _publisher.PublishAsync("order_exchange", "order.created", orderEvent);
 
-            return new CreateOrderResponse
-            {
-                OrderId = created.Id,
-                Amount = created.Amount,
-                Currency = created.Currency,
-                Status = created.Status.ToString()
-            };
+            return _mapper.Map<CreateOrderResponse>(created);
         }
 
         public override async Task<GetOrderResponse> GetOrder(GetOrderRequest request, ServerCallContext context)
@@ -80,14 +67,7 @@ namespace OrderServiceApp.Services
             {
                 _logger.LogInformation("Returning Order {OrderId} from Cache", request.OrderId);
                 var orderData = JsonConvert.DeserializeObject<Order>(cachedOrder);
-                return new GetOrderResponse
-                {
-                    OrderId = orderData.Id,
-                    UserId = orderData.UserId,
-                    Amount = orderData.Amount,
-                    Currency = orderData.Currency,
-                    Status = orderData.Status.ToString()
-                };
+                return _mapper.Map<GetOrderResponse>(orderData);
             }
 
             var order = await _repo.GetByIdAsync(request.OrderId);
@@ -99,14 +79,7 @@ namespace OrderServiceApp.Services
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
             });
 
-            return new GetOrderResponse
-            {
-                OrderId = order.Id,
-                UserId = order.UserId,
-                Amount = order.Amount,
-                Currency = order.Currency,
-                Status = order.Status.ToString()
-            };
+            return _mapper.Map<GetOrderResponse>(order);
         }
 
         public override async Task<UpdateOrderStatusResponse> UpdateOrderStatus(UpdateOrderStatusRequest request, ServerCallContext context)
