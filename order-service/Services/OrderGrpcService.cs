@@ -3,6 +3,8 @@ using OrderProto;
 using OrderServiceApp.Domain;
 using OrderServiceApp.Repositories;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Distributed;
+using Newtonsoft.Json;
 namespace OrderServiceApp.Services
 {
     public class OrderGrpcService : OrderService.OrderServiceBase
@@ -10,16 +12,33 @@ namespace OrderServiceApp.Services
         private readonly IOrderRepository _repo;
         private readonly shared.Messaging.RabbitMqPublisher _publisher;
         private readonly ILogger<OrderGrpcService> _logger;
+        private readonly IDistributedCache _cache;
 
-        public OrderGrpcService(IOrderRepository repo, shared.Messaging.RabbitMqPublisher publisher, ILogger<OrderGrpcService> logger)
+        public OrderGrpcService(IOrderRepository repo, shared.Messaging.RabbitMqPublisher publisher, ILogger<OrderGrpcService> logger, IDistributedCache cache)
         {
             _repo = repo;
             _publisher = publisher;
             _logger = logger;
+            _cache = cache;
         }
 
         public override async Task<CreateOrderResponse> CreateOrder(CreateOrderRequest request, ServerCallContext context)
         {
+            // Idempotency Check
+            string idempotencyKey = $"idempotency_order_{request.UserId}_{request.Amount}_{request.Currency}";
+            var existing = await _cache.GetStringAsync(idempotencyKey);
+            if (!string.IsNullOrEmpty(existing))
+            {
+                _logger.LogWarning("Duplicate request detected for key: {IdempotencyKey}", idempotencyKey);
+                throw new RpcException(new Status(StatusCode.AlreadyExists, "Duplicate request detected. Please wait a moment."));
+            }
+
+            // Set Idempotency Key (expires in 10 seconds)
+            await _cache.SetStringAsync(idempotencyKey, "processing", new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(10)
+            });
+
             _logger.LogInformation("Creating Order for User {UserId} with Amount {Amount}", request.UserId, request.Amount);
 
             var order = new Order
@@ -54,8 +73,31 @@ namespace OrderServiceApp.Services
 
         public override async Task<GetOrderResponse> GetOrder(GetOrderRequest request, ServerCallContext context)
         {
+            string cacheKey = $"order_{request.OrderId}";
+            var cachedOrder = await _cache.GetStringAsync(cacheKey);
+            
+            if (!string.IsNullOrEmpty(cachedOrder))
+            {
+                _logger.LogInformation("Returning Order {OrderId} from Cache", request.OrderId);
+                var orderData = JsonConvert.DeserializeObject<Order>(cachedOrder);
+                return new GetOrderResponse
+                {
+                    OrderId = orderData.Id,
+                    UserId = orderData.UserId,
+                    Amount = orderData.Amount,
+                    Currency = orderData.Currency,
+                    Status = orderData.Status.ToString()
+                };
+            }
+
             var order = await _repo.GetByIdAsync(request.OrderId);
             if (order == null) throw new RpcException(new Status(StatusCode.NotFound, "Order not found"));
+
+            // Cache the order (expires in 10 minutes)
+            await _cache.SetStringAsync(cacheKey, JsonConvert.SerializeObject(order), new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
+            });
 
             return new GetOrderResponse
             {
@@ -76,6 +118,10 @@ namespace OrderServiceApp.Services
                 order.Status = s;
 
             await _repo.UpdateAsync(order);
+
+            // Invalidate Cache
+            string cacheKey = $"order_{request.OrderId}";
+            await _cache.RemoveAsync(cacheKey);
 
             return new UpdateOrderStatusResponse { Ok = true };
         }

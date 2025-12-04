@@ -16,6 +16,14 @@ builder.Services.AddDbContext<OrderDbContext>(opts => opts.UseNpgsql(connection)
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<shared.Messaging.RabbitMqPublisher>();
 builder.Services.AddHostedService<PaymentCompletedConsumer>();
+
+// Add Redis
+var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = redisConnection;
+    options.InstanceName = "OrderService_";
+});
 // Add CORS
 builder.Services.AddCors(options =>
 {

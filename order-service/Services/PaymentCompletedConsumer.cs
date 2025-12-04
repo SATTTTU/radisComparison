@@ -3,7 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
-using RabbitMQ.Client;
+using RabbitMQ.Client;  
 using RabbitMQ.Client.Events;
 using shared.Events;
 using OrderServiceApp.Repositories;
