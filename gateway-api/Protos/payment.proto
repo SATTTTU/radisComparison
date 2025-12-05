@@ -21,10 +21,12 @@ message CreatePaymentResponse {
 }
 
 message CapturePaymentRequest {
-  string paymentId = 1;
+  string token = 1;
 }
 
+
 message CapturePaymentResponse {
-  string paymentId = 1;
+  string token = 1;
   string status = 2;
 }
+

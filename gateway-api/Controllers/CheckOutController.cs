@@ -41,8 +41,8 @@ public class CheckoutController : ControllerBase
             // does not have a Currency field, only amount, returnUrl, and cancelUrl.
             // Currency = request.Currency, 
 
-            ReturnUrl = "http://localhost:3000/checkout/success",
-            CancelUrl = "http://localhost:3000/checkout/cancel"
+            ReturnUrl = "http://localhost:5173/checkout/success",
+            CancelUrl = "http://localhost:5173/checkout/cancel"
         });
 
         return Ok(new
@@ -58,11 +58,13 @@ public class CheckoutController : ControllerBase
     {
         var response = await _paymentClient.CapturePaymentAsync(new CapturePaymentRequest
         {
-            PaymentId = request.PaymentId
+            Token = request.Token
         });
+
 
         return Ok(response);
     }
+
 }
 
 public class CreateOrderDto
@@ -74,5 +76,6 @@ public class CreateOrderDto
 
 public class CapturePaymentDto
 {
-    public string PaymentId { get; set; } = string.Empty;
+    public string Token { get; set; } = string.Empty;
 }
+

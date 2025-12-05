@@ -39,11 +39,11 @@ public class PaymentGrpcService : PaymentService.PaymentServiceBase
     {
         try
         {
-            var status = await _payPalService.CaptureOrderAsync(request.PaymentId);
+            var status = await _payPalService.CaptureOrderAsync(request.Token);
 
             return new CapturePaymentResponse
             {
-                PaymentId = request.PaymentId,
+                Token = request.Token,
                 Status = status
             };
         }
@@ -53,4 +53,5 @@ public class PaymentGrpcService : PaymentService.PaymentServiceBase
             throw new RpcException(new Status(StatusCode.Internal, "Failed to capture payment"));
         }
     }
+
 }
